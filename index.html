@@ -36,8 +36,7 @@
 
     <script type="text/javascript">
         Math.config = {
-            number: "BigNumber",
-            precision: 20
+            
         };
     
         var canvas;
@@ -45,21 +44,24 @@
         
         async function webGL() {
             init();
-            var idealFunction = Math.sin;
+            var idealFunction = Math.exp;
             
-            var dx = Math.pow(10, -5);
+            var dx = Math.pow(10, -1);
             var polynomialTerms = [];
             var currentDerivative = idealFunction;
             
             for (var n = 0; n < 10; ++n) {
                 clearCanvas();
-                draw2DGraph(MultiTermPolynomial(polynomialTerms), [1, 0, 0, 1], 1000, 10, 2, true);
+                var approx = MultiTermPolynomial(polynomialTerms);
+                draw2DGraph(approx, [0, 1, 0, 1], 1000, 10, 2, true);
                 draw2DGraph(idealFunction, [0, 0, 1, 1], 1000, 10, 2, false);
+                draw2DGraph(error(approx, idealFunction), [1, 0, 0, 0.5], 1000, 10, 2, false);
                 
                 polynomialTerms.push(SingleTermPolynomial(currentDerivative(0) / factorial(n), n));
+                //console.log(currentDerivative(0)); Check the error
                 currentDerivative = d(currentDerivative, dx);
                 
-                await sleep(500);
+                await sleep(100);
             }
         };
         
@@ -96,6 +98,12 @@
             //Derivative
             return function(x) {
                 return (f(x + dx) - f(x)) / dx;
+            };
+        }
+        
+        function error(f1, f2) {
+            return function(x) {
+                return Math.abs(f1(x) - f2(x));
             };
         }
         
@@ -214,17 +222,14 @@
         
         function init(color) {
             canvas = document.getElementById("canvas");
-            gl = canvas.getContext("webgl");
+            gl = canvas.getContext("webgl", {
+                preserveDrawingBuffer: true
+            });
             gl.viewport(0, 0, canvas.width, canvas.height);
             clearCanvas(color || [0, 0, 0, 1]);
         }
         
         
-        
-        function average2Nums(a, b) {
-            //Just a helper
-            return (a + b) / 2;
-        }
         
         function sleep(ms) {
             //Taken from https://stackoverflow.com/questions/951021/what-is-the-javascript-version-of-sleep
