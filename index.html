@@ -34,11 +34,7 @@
         }
     </script>
 
-    <script type="text/javascript">
-        Math.config = {
-            
-        };
-    
+    <script type="text/javascript">    
         var canvas;
         var gl;
         
@@ -61,7 +57,7 @@
                 //console.log(currentDerivative(0)); Check the error
                 currentDerivative = d(currentDerivative, dx);
                 
-                await sleep(100);
+                await sleep(500);
             }
         };
         
