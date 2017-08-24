@@ -1,241 +1,233 @@
 <!DOCTYPE html>
 <html>
 
-<head>
-    <script id="vertex" type="x-shader">
-        attribute vec3 aVertexPosition;
-        
-        void main() {
-            gl_Position = vec4(aVertexPosition, 1);
-        }
-    </script>
-    <script id="fragment" type="x-shader">
-        void main() {
-            gl_FragColor = vec4(1, 1, 1, 1);
-        }
-    </script>
-    
-    <script id="vertexSetColor" type="x-shader">
-        attribute vec3 aVertexPosition;
-        attribute vec4 aColor;
-        
-        varying lowp vec4 vColor;
-        
-        void main() {
-            gl_Position = vec4(aVertexPosition, 1);
-            vColor = aColor;
-        }
-    </script>
-    <script id="fragmentSetColor" type="x-shader">
-        varying lowp vec4 vColor;
-        
-        void main() {
-            gl_FragColor = vColor;
-        }
-    </script>
+    <head>
+        <script id="vertex" type="x-shader">
+            attribute vec3 aVertexPosition; void main() { gl_Position = vec4(aVertexPosition, 1); }
+        </script>
+        <script id="fragment" type="x-shader">
+            void main() { gl_FragColor = vec4(1, 1, 1, 1); }
+        </script>
 
-    <script type="text/javascript">    
-        var canvas;
-        var gl;
-        
-        async function webGL() {
-            init();
-            var idealFunction = Math.exp;
-            
-            var dx = Math.pow(10, -1);
-            var polynomialTerms = [];
-            var currentDerivative = idealFunction;
-            
-            for (var n = 0; n < 10; ++n) {
-                clearCanvas();
-                var approx = MultiTermPolynomial(polynomialTerms);
-                draw2DGraph(approx, [0, 1, 0, 1], 1000, 10, 2, true);
-                draw2DGraph(idealFunction, [0, 0, 1, 1], 1000, 10, 2, false);
-                draw2DGraph(error(approx, idealFunction), [1, 0, 0, 0.5], 1000, 10, 2, false);
-                
-                polynomialTerms.push(SingleTermPolynomial(currentDerivative(0) / factorial(n), n));
-                //console.log(currentDerivative(0)); Check the error
-                currentDerivative = d(currentDerivative, dx);
-                
-                await sleep(500);
-            }
-        };
-        
-        
-        
-        function MultiTermPolynomial(termArray) {
-            return function(x) {
-                var a = 0;
-                for (var i = 0; i < termArray.length; ++i) {
-                    a += termArray[i](x);
+        <script id="vertexSetColor" type="x-shader">
+            attribute vec3 aVertexPosition; attribute vec4 aColor; varying lowp vec4 vColor; void main() { gl_Position = vec4(aVertexPosition, 1); vColor = aColor; }
+        </script>
+        <script id="fragmentSetColor" type="x-shader">
+            varying lowp vec4 vColor; void main() { gl_FragColor = vColor; }
+        </script>
+
+        <script type="text/javascript">
+            var canvas;
+            var gl;
+
+            async function webGL() {
+                init();
+                var idealFunction = Math.exp;
+
+                var dx = 0.05; //More accuracy needed
+                var polynomialTerms = [];
+                var currentDerivative = idealFunction;
+                var n = 0;
+
+                while (Math.round(currentDerivative(0)) == Math.round(idealFunction(0))) {
+                    clearCanvas();
+                    var approx = MultiTermPolynomial(polynomialTerms);
+                    draw2DGraph(approx, [0, 1, 0, 1], 1000, 10, 2, true);
+                    draw2DGraph(idealFunction, [0, 0, 1, 1], 1000, 10, 2, false);
+                    draw2DGraph(error(approx, idealFunction), [1, 0, 0, 0.1], 1000, 10, 2, false);
+
+                    polynomialTerms.push(SingleTermPolynomial(currentDerivative(0) / factorial(n), n));
+                    //console.log(currentDerivative(0)); //Check the error
+                    currentDerivative = d(currentDerivative, dx);
+
+                    //await sleep(100);
+                    n++;
                 }
+            };
+
+
+
+            function MultiTermPolynomial(termArray) {
+                return function(x) {
+                    var a = 0;
+                    for (var i = 0; i < termArray.length; ++i) {
+                        a += termArray[i](x);
+                    }
+                    return a;
+                };
+            }
+
+            function SingleTermPolynomial(coefficient, power) {
+                return function(x) {
+                    return coefficient * Math.pow(x, power);
+                };
+            }
+
+
+
+            function factorial(num) {
+                var a = 1;
+                for (var i = 2; i <= num; i++)
+                    a = a * i;
                 return a;
-            };
-        }
-        
-        function SingleTermPolynomial(coefficient, power) {
-            return function(x) {
-                return coefficient * Math.pow(x, power);
-            };
-        }
-        
-        
-        
-        function factorial(num) {
-            var a = 1;
-            for (var i = 2; i <= num; i++)
-                a = a * i;
-            return a;
-        }
-        
-        
-        
-        function d(f, dx) {
-            //Derivative
-            return function(x) {
-                return (f(x + dx) - f(x)) / dx;
-            };
-        }
-        
-        function error(f1, f2) {
-            return function(x) {
-                return Math.abs(f1(x) - f2(x));
-            };
-        }
-        
-        
-        
-        function draw2DGraph(functionName, lineColor, resolution, xScale, yScale, isGrid, gridColor) {
-            //Get the shaders
-            var vs = compileAndReturnShader("vertexSetColor", gl.VERTEX_SHADER);
-            var fs = compileAndReturnShader("fragmentSetColor", gl.FRAGMENT_SHADER);
-            var graphProgram = createShaderProgram(vs, fs);
-            //Create the vertices that make up the graph
-            var vertices = create2DGraphVertices(functionName, resolution, xScale, yScale);
-            //Set the color array for the vertices
-            var colors = [];
-            while (vertices.length * 4 / 3 > colors.length) {
-                for (var i = 0; i < 4; ++i) {
-                    colors.push(lineColor[i]);
+            }
+
+
+
+            function d(f, dx) {
+                switch (f) {
+                    case Math.exp:
+                        return Math.exp;
+                    case Math.sin:
+                        return Math.cos;
+                    case Math.sqrt:
+                        return SingleTermPolynomial(0.5, -0.5);
+                    default:
+                        return function(x) {
+                            return (f(x + dx) - f(x)) / dx;
+                        };
                 }
             }
-            //Draw in the grid
-            if (isGrid) {
-                //vertices = vertices.concat(create2DGridVertices([0, 0], -xScale, xScale, -yScale, yScale));
-                vertices = create2DGridVertices([0, 0], -xScale, xScale, -yScale, yScale).concat(vertices);
-                const tempColor = gridColor || [1, 1, 1, 1];
+
+            function error(f1, f2) {
+                return function(x) {
+                    return Math.abs(f1(x) - f2(x));
+                };
+            }
+
+
+
+            function draw2DGraph(functionName, lineColor, resolution, xScale, yScale, isGrid, gridColor) {
+                //Get the shaders
+                var vs = compileAndReturnShader("vertexSetColor", gl.VERTEX_SHADER);
+                var fs = compileAndReturnShader("fragmentSetColor", gl.FRAGMENT_SHADER);
+                var graphProgram = createShaderProgram(vs, fs);
+                //Create the vertices that make up the graph
+                var vertices = create2DGraphVertices(functionName, resolution, xScale, yScale);
+                //Set the color array for the vertices
+                var colors = [];
                 while (vertices.length * 4 / 3 > colors.length) {
-                    colors.splice(0, 0, tempColor);
+                    for (var i = 0; i < 4; ++i) {
+                        colors.push(lineColor[i]);
+                    }
                 }
+                //Draw in the grid
+                if (isGrid) {
+                    //vertices = vertices.concat(create2DGridVertices([0, 0], -xScale, xScale, -yScale, yScale));
+                    vertices = create2DGridVertices([0, 0], -xScale, xScale, -yScale, yScale).concat(vertices);
+                    const tempColor = gridColor || [1, 1, 1, 1];
+                    while (vertices.length * 4 / 3 > colors.length) {
+                        colors.splice(0, 0, tempColor);
+                    }
+                }
+                //Create the buffers for position and color
+                var vertexBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+                var colorBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+                //Set current shader program
+                gl.useProgram(graphProgram);
+                //Set up vertex position attribute
+                gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+                graphProgram.aVertexPosition = gl.getAttribLocation(graphProgram, "aVertexPosition");
+                gl.enableVertexAttribArray(graphProgram.aVertexPosition);
+                gl.vertexAttribPointer(graphProgram.aVertexPosition, 3, gl.FLOAT, false, 0, 0);
+                //Set up vertex color attribut
+                gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+                graphProgram.aColor = gl.getAttribLocation(graphProgram, "aColor");
+                gl.enableVertexAttribArray(graphProgram.aColor);
+                gl.vertexAttribPointer(graphProgram.aColor, 4, gl.FLOAT, false, 0, 0);
+                //DRAW!
+                gl.drawArrays(gl.LINES, 0, vertices.length / 3);
             }
-            //Create the buffers for position and color
-            var vertexBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
-            var colorBuffer = gl.createBuffer();
-            gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-            //Set current shader program
-            gl.useProgram(graphProgram);
-            //Set up vertex position attribute
-            gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-            graphProgram.aVertexPosition = gl.getAttribLocation(graphProgram, "aVertexPosition");
-            gl.enableVertexAttribArray(graphProgram.aVertexPosition);
-            gl.vertexAttribPointer(graphProgram.aVertexPosition, 3, gl.FLOAT, false, 0, 0);
-            //Set up vertex color attribut
-            gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-            graphProgram.aColor = gl.getAttribLocation(graphProgram, "aColor");
-            gl.enableVertexAttribArray(graphProgram.aColor);
-            gl.vertexAttribPointer(graphProgram.aColor, 4, gl.FLOAT, false, 0, 0);
-            //DRAW!
-            gl.drawArrays(gl.LINES, 0, vertices.length / 3);
-        }
-        
-        function create2DGridVertices(centerCoords, minX, maxX, minY, maxY) {
-            //Two main lines on the grid
-            var vertices = [
+
+            function create2DGridVertices(centerCoords, minX, maxX, minY, maxY) {
+                //Two main lines on the grid
+                var vertices = [
                 centerCoords[0], -1, 0,
                 centerCoords[0], 1, 0,
                 -1, centerCoords[1], 0,
                 1, centerCoords[1], 0
             ];
-            //Do tick marks and numbers here (eventually)
-            return vertices;
-        }
-        
-        function create2DGraphVertices(functionName, resolution, xScale, yScale) {
-            var vertices = [];
-            //I need to do the first and last points an extra time or the lines won't line up
-            vertices.push(-1);
-            vertices.push(functionName(-xScale) / yScale);
-            vertices.push(0);
-            for (var i = 0; i < resolution + 1; ++i) {
-                const baseX = (i * 2) / resolution - 1;
-                const scaledX = baseX * xScale;
-                vertices.push(baseX);
-                vertices.push(functionName(scaledX) / yScale);
-                vertices.push(0);
-                vertices.push(baseX);
-                vertices.push(functionName(scaledX) / yScale);
-                vertices.push(0);
+                //Do tick marks and numbers here (eventually)
+                return vertices;
             }
-            vertices.push(1);
-            vertices.push(functionName(xScale) / yScale);
-            vertices.push(0);
-            return vertices;
-        }
-        
-        
-        function clearCanvas(color) {
-            const drawColor = color || [0, 0, 0, 1];
-            gl.clearColor(drawColor[0], drawColor[1], drawColor[2], drawColor[3]);
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-        }
-        
-        
-        
-        function createShaderProgram(vertexShader, fragmentShader) {
-            var program = gl.createProgram();
-            gl.attachShader(program, vertexShader);
-            gl.attachShader(program, fragmentShader);
-            gl.linkProgram(program);
-            if (!gl.getProgramParameter(program, gl.LINK_STATUS))
-                console.log(gl.getProgramInfoLog(program));
-            return program;
-        }
-        
-        function compileAndReturnShader(id, type) {
-            var a = document.getElementById(id).firstChild.nodeValue;
-            var shader = gl.createShader(type);
-            gl.shaderSource(shader, a);
-            gl.compileShader(shader);
-            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
-                console.log(gl.getShaderInfoLog(shader));
-            return shader;
-        }
-        
-        
-        
-        function init(color) {
-            canvas = document.getElementById("canvas");
-            gl = canvas.getContext("webgl", {
-                preserveDrawingBuffer: true
-            });
-            gl.viewport(0, 0, canvas.width, canvas.height);
-            clearCanvas(color || [0, 0, 0, 1]);
-        }
-        
-        
-        
-        function sleep(ms) {
-            //Taken from https://stackoverflow.com/questions/951021/what-is-the-javascript-version-of-sleep
-            return new Promise(resolve => setTimeout(resolve, ms));
-        }
-    </script>
-</head>
 
-<body onload="webGL()">
-    <canvas id="canvas" width="900" height="900"></canvas>
-</body>
+            function create2DGraphVertices(functionName, resolution, xScale, yScale) {
+                var vertices = [];
+                //I need to do the first and last points an extra time or the lines won't line up
+                vertices.push(-1);
+                vertices.push(functionName(-xScale) / yScale);
+                vertices.push(0);
+                for (var i = 0; i < resolution + 1; ++i) {
+                    const baseX = (i * 2) / resolution - 1;
+                    const scaledX = baseX * xScale;
+                    vertices.push(baseX);
+                    vertices.push(functionName(scaledX) / yScale);
+                    vertices.push(0);
+                    vertices.push(baseX);
+                    vertices.push(functionName(scaledX) / yScale);
+                    vertices.push(0);
+                }
+                vertices.push(1);
+                vertices.push(functionName(xScale) / yScale);
+                vertices.push(0);
+                return vertices;
+            }
+
+
+            function clearCanvas(color) {
+                const drawColor = color || [0, 0, 0, 1];
+                gl.clearColor(drawColor[0], drawColor[1], drawColor[2], drawColor[3]);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            }
+
+
+
+            function createShaderProgram(vertexShader, fragmentShader) {
+                var program = gl.createProgram();
+                gl.attachShader(program, vertexShader);
+                gl.attachShader(program, fragmentShader);
+                gl.linkProgram(program);
+                if (!gl.getProgramParameter(program, gl.LINK_STATUS))
+                    console.log(gl.getProgramInfoLog(program));
+                return program;
+            }
+
+            function compileAndReturnShader(id, type) {
+                var a = document.getElementById(id).firstChild.nodeValue;
+                var shader = gl.createShader(type);
+                gl.shaderSource(shader, a);
+                gl.compileShader(shader);
+                if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
+                    console.log(gl.getShaderInfoLog(shader));
+                return shader;
+            }
+
+
+
+            function init(color) {
+                canvas = document.getElementById("canvas");
+                gl = canvas.getContext("webgl", {
+                    preserveDrawingBuffer: true
+                });
+                gl.viewport(0, 0, canvas.width, canvas.height);
+                clearCanvas(color || [0, 0, 0, 1]);
+            }
+
+
+
+            function sleep(ms) {
+                //Taken from https://stackoverflow.com/questions/951021/what-is-the-javascript-version-of-sleep
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+        </script>
+    </head>
+
+    <body onload="webGL()">
+        <canvas id="canvas" width="900" height="900"></canvas>
+    </body>
 
 </html>
